@@ -1,0 +1,157 @@
+---
+title: "ANA 515 Week 06, Assignment 3-Storm Event Analysis"
+author: "SACHINSINGH TOMAR"
+date: "2024-07-01"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, include = TRUE, message = TRUE, warning = FALSE)
+library(tidyverse)
+library(knitr)
+library(bslib)
+library(readr)
+library(rmarkdown)
+library(dplyr)  # for data manipulation
+library(lubridate)  # for date handling
+library(stringr)
+```
+
+``` {r load-data, echo=TRUE}
+#code for to read local file and assign for further process.
+stormevent_data <-  "/Users/sachintomar/Desktop/McDaniel/ANA 515/Week 06//StormEventsDetails.csv" # Code for if your want to read file from local folder.
+
+# Read the dataset from the URL
+storm_data <- read_csv(stormevent_data,show_col_types = FALSE) #read_csv is part of the readr package, which is included in the tidyverse collection of R packages
+
+#display the first few rows of the dataframe
+head(storm_data)
+```
+
+``` {r limit-data, echo=TRUE}
+# Select the desired columns
+selected_columns <- c(
+  'BEGIN_YEARMONTH',
+  'EPISODE_ID',
+  'STATE',
+  'STATE_FIPS',
+  'CZ_NAME',   # County name
+  'CZ_TYPE',
+  'CZ_FIPS',
+  'EVENT_TYPE'
+)
+
+# Limit the dataframe to the selected columns
+limited_stormdata <- storm_data %>% select(all_of(selected_columns))
+
+# Display the first few rows of the limited dataframe
+head(limited_stormdata)
+```
+
+``` {r arrange-data_by_state, echo=TRUE}
+# Arrange the dataframe by the state name
+arranged_stormdata <- limited_stormdata %>% arrange(STATE)
+
+# Display the first few rows of the arranged dataframe
+head(arranged_stormdata)
+```
+
+``` {r Changestate/countyname-titlecase, echo=TRUE}
+arranged_stormdata <- arranged_stormdata %>%
+  mutate(
+    STATE = str_to_title(STATE),
+    CZ_NAME = str_to_title(CZ_NAME)
+  )
+
+# Display the first few rows of the modified data
+head(arranged_stormdata)
+rows_arranged = nrow(arranged_stormdata)
+rows_arranged
+```
+``` {r filter, echo=TRUE}
+# Filter the events to include only those with CZ_TYPE of 'C'
+filtered_storm_events <- arranged_stormdata %>%
+  filter(CZ_TYPE == "C") %>%
+  select(-CZ_TYPE)
+
+# Display the first few rows of the filtered dataframe
+head(filtered_storm_events)
+rows_filtered = nrow(filtered_storm_events)
+rows_filtered
+```
+
+``` {r padding, echo=TRUE}
+# Pad the state and county FIPS with a "0" at the beginning
+filtered_storm_events <- filtered_storm_events %>%
+  mutate(
+    STATE_FIPS = str_pad(STATE_FIPS, width = 3, side = "left", pad = "0"),
+    CZ_FIPS = str_pad(CZ_FIPS, width = 3, side = "left", pad = "0")
+  )
+
+# Unite the state and county FIPS into one FIPS column
+filtered_storm_events <- filtered_storm_events %>%
+  unite("FIPS", STATE_FIPS, CZ_FIPS, sep = "")
+
+# Display the first few rows
+head(filtered_storm_events)
+```
+
+```{r change_column_names_lowercase, echo=TRUE}
+# Change all column names to lower case
+filtered_storm_events <- filtered_storm_events %>%
+  rename_all(tolower)
+
+# Display the first few rows of the dataframe with lower case column names
+head(filtered_storm_events)
+```
+
+```{r US-states, echo=TRUE}
+# Load the data on U.S. states
+data("state")
+
+# Create a dataframe with state name, area, and region
+US_states <- data.frame(
+  US_State = state.name,
+  Area = state.area,
+  Region = state.region
+)
+
+# Display the first few rows of the states dataframe
+head(US_states)
+
+```
+
+```{r number-of-events-per-state, echo=TRUE}
+# Create a dataframe with the number of events per state
+events_per_state <- filtered_storm_events %>%
+  group_by(state) %>%
+  summarise(number_of_events = n())
+
+# Display the first few rows of the events per state dataframe
+head(events_per_state)
+
+# Merge the events_per_state dataframe with the states_data dataframe
+merged_data <- merge(events_per_state, US_states, by.x = "state", by.y = "US_State")
+
+# Display the first few rows of the merged dataframe
+head(merged_data)
+```
+
+```{r plotting, echo=TRUE}
+# Create the scatter plot
+ggplot(merged_data, aes(x = Area, y = number_of_events, color = Region)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c(
+    "Northeast" = "red",
+    "South" = "green",
+    "North Central" = "blue",
+    "West" = "purple"
+  )) +
+  labs(
+    title = "Number of Storm Events vs Land Area",
+    x = "Land Area (square miles)",
+    y = "Number of Storm Events"
+  ) +
+  theme_minimal()
+```
+
